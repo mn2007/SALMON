@@ -60,6 +60,12 @@ real(8) :: f0
 integer :: iobmax
 integer :: iob_allob
 
+integer :: iob_b,iz_b
+integer :: iob_end,iz_end
+
+integer :: iob_s,iob_e
+integer :: iz_s,iz_e
+
 f0=(1.d0/Hgs(1)**2   &
    +1.d0/Hgs(2)**2   &
    +1.d0/Hgs(3)**2)
@@ -84,6 +90,128 @@ if(iperiodic==3)then
 end if
 
 elp3(701)=get_wtime()
+
+! Pseudopotential 1 (non-local)
+if(iflag_ps.eq.1)then
+
+  do iik=k_sta,k_end
+  do iob=1,iobmax
+!$OMP parallel
+!$OMP do private(iatom,jj)
+    do iatom=1,MI
+    do jj=1,maxlm
+      uVpsibox3(jj,iatom,iob,iik)=0.d0
+      uVpsibox4(jj,iatom,iob,iik)=0.d0
+    end do
+    end do
+!$OMP end parallel
+  end do
+  end do
+
+  select case(iperiodic)
+  case(0)
+    do iik=k_sta,k_end
+    do iob=1,iobmax
+!$OMP parallel
+!$OMP do private(iatom,ikoa,lm,jj,sumbox) schedule(static, 1)
+      do iatom=1,MI
+        ikoa=Kion(iatom)
+        loop_lm2 : do lm=1,(Mlps(ikoa)+1)**2
+          if ( abs(uVu(lm,iatom))<1.d-5 ) cycle loop_lm2
+          sumbox=0.d0
+          do jj=1,Mps(iatom)
+            sumbox=sumbox+uV(jj,lm,iatom)*  &
+                     tpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik)
+          end do
+          uVpsibox3(lm,iatom,iob,iik)=sumbox*Hvol/uVu(lm,iatom)
+        end do loop_lm2
+      end do
+!$OMP end do nowait
+!$OMP end parallel
+    end do
+    end do
+  case(3)
+    do iik=k_sta,k_end
+    do iob=1,iobmax
+!$OMP parallel
+!$OMP do private(iatom,ikoa,lm,jj,sumbox) schedule(static, 1)
+      do iatom=1,MI
+        ikoa=Kion(iatom)
+        loop_lm4 : do lm=1,(Mlps(ikoa)+1)**2
+          if ( abs(uVu(lm,iatom))<1.d-5 ) cycle loop_lm4
+          sumbox=0.d0
+          do jj=1,Mps(iatom)
+            sumbox=sumbox+uV(jj,lm,iatom)*tpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik)*ekr(jj,iatom,iik)
+          end do
+          uVpsibox3(lm,iatom,iob,iik)=sumbox*Hvol/uVu(lm,iatom)
+        end do loop_lm4
+      end do
+!$OMP end do nowait
+!$OMP end parallel
+    end do
+    end do
+  end select
+
+  elp3(705)=get_wtime()
+  call comm_summation(uVpsibox3,uVpsibox4,maxlm*MI*iobmax*k_num,nproc_group_korbital)
+  elp3(706)=get_wtime()
+  elp3(744)=elp3(744)+elp3(706)-elp3(705)
+
+end if
+
+! Pseudopotential 2 (non-local)
+if(iflag_ps==1) then
+  select case(iperiodic)
+  case(0)
+    do iik=k_sta,k_end
+    do iob=1,iobmax
+!$OMP parallel do collapse(2) private(ix,iy,iz)
+      do iz=iwk3sta(3),iwk3end(3)
+      do iy=iwk3sta(2),iwk3end(2)
+      do ix=iwk3sta(1),iwk3end(1)
+        htpsi(ix,iy,iz,iob,iik)=0.d0
+      end do
+      end do
+      end do
+      do iatom=1,MI
+        ikoa=Kion(iatom)
+!$OMP parallel do private(jj,lm)
+        do jj=1,Mps(iatom)
+          do lm=1,(Mlps(ikoa)+1)**2
+            htpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik)= &
+              htpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik) + &
+                uVpsibox4(lm,iatom,iob,iik)*uV(jj,lm,iatom)
+          end do
+        end do
+      end do
+    end do
+    end do
+  case(3)
+    do iik=k_sta,k_end
+    do iob=1,iobmax
+!$OMP parallel do collapse(2) private(ix,iy,iz)
+      do iz=iwk3sta(3),iwk3end(3)
+      do iy=iwk3sta(2),iwk3end(2)
+      do ix=iwk3sta(1),iwk3end(1)
+        htpsi(ix,iy,iz,iob,iik)=0.d0
+      end do
+      end do
+      end do
+      do iatom=1,MI
+        ikoa=Kion(iatom)
+!$OMP parallel do private(jj,lm)
+        do jj=1,Mps(iatom)
+          do lm=1,(Mlps(ikoa)+1)**2
+            htpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik)= &
+              htpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik) + &
+                uVpsibox4(lm,iatom,iob,iik)*uV(jj,lm,iatom)*conjg(ekr(jj,iatom,iik))
+          end do
+        end do
+      end do
+    end do
+    end do
+  end select
+end if
 
 select case(iperiodic)
 case(0)
@@ -183,184 +311,133 @@ case(0)
     end do
     end do
   end if
-case(3)
-  do iik=k_sta,k_end
-    fdN0=0.5d0*ksquare(iik)-0.5d0*cNmat(0,Nd)*f0
-    do jj=1,3
-      do ind=1,4
-        fdN1(ind,jj)=-0.5d0*cNmat(ind,Nd)/Hgs(jj)**2-zi*k_rd(jj,iik)*bNmat(ind,Nd)/Hgs(jj)
-        fdN2(ind,jj)=-0.5d0*cNmat(ind,Nd)/Hgs(jj)**2+zi*k_rd(jj,iik)*bNmat(ind,Nd)/Hgs(jj)
-      end do
-    end do
-    do iob=1,iobmax
-      call calc_allob(iob,iob_allob)
-      call set_ispin(iob_allob,jspin)
-!$OMP parallel do collapse(2) private(ix,iy,iz)
-      do iz=iwk3sta(3),iwk3end(3)
-      do iy=iwk3sta(2),iwk3end(2)
-      do ix=iwk3sta(1),iwk3end(1)
-        htpsi(ix,iy,iz,iob,iik) =                                        &
-        ( tVlocal(ix,iy,iz,jspin)+fdN0)*tpsi(ix,iy,iz,iob,iik)  &
-          +fdN1(1,1)* tpsi(ix+1,iy,iz,iob,iik) + fdN2(1,1)* tpsi(ix-1,iy,iz,iob,iik)  &
-          +fdN1(2,1)* tpsi(ix+2,iy,iz,iob,iik) + fdN2(2,1)* tpsi(ix-2,iy,iz,iob,iik)  &
-          +fdN1(3,1)* tpsi(ix+3,iy,iz,iob,iik) + fdN2(3,1)* tpsi(ix-3,iy,iz,iob,iik)  &
-          +fdN1(4,1)* tpsi(ix+4,iy,iz,iob,iik) + fdN2(4,1)* tpsi(ix-4,iy,iz,iob,iik)  &
-          +fdN1(1,2)* tpsi(ix,iy+1,iz,iob,iik) + fdN2(1,2)* tpsi(ix,iy-1,iz,iob,iik)  &
-          +fdN1(2,2)* tpsi(ix,iy+2,iz,iob,iik) + fdN2(2,2)* tpsi(ix,iy-2,iz,iob,iik)  &
-          +fdN1(3,2)* tpsi(ix,iy+3,iz,iob,iik) + fdN2(3,2)* tpsi(ix,iy-3,iz,iob,iik)  &
-          +fdN1(4,2)* tpsi(ix,iy+4,iz,iob,iik) + fdN2(4,2)* tpsi(ix,iy-4,iz,iob,iik)  &
-          +fdN1(1,3)* tpsi(ix,iy,iz+1,iob,iik) + fdN2(1,3)* tpsi(ix,iy,iz-1,iob,iik)  &
-          +fdN1(2,3)* tpsi(ix,iy,iz+2,iob,iik) + fdN2(2,3)* tpsi(ix,iy,iz-2,iob,iik)  &
-          +fdN1(3,3)* tpsi(ix,iy,iz+3,iob,iik) + fdN2(3,3)* tpsi(ix,iy,iz-3,iob,iik)  &
-          +fdN1(4,3)* tpsi(ix,iy,iz+4,iob,iik) + fdN2(4,3)* tpsi(ix,iy,iz-4,iob,iik)
-      end do
-      end do
-      end do
-    end do
-  end do
-end select
 
-
-
-! Pseudopotential 1 (non-local)
-if(iflag_ps.eq.1)then
-
-  do iik=k_sta,k_end
-  do iob=1,iobmax
-!$OMP parallel
-!$OMP do private(iatom,jj)
-    do iatom=1,MI
-    do jj=1,maxlm
-      uVpsibox3(jj,iatom,iob,iik)=0.d0
-      uVpsibox4(jj,iatom,iob,iik)=0.d0
-    end do
-    end do
-!$OMP end parallel
-  end do
-  end do
-
-  select case(iperiodic)
-  case(0)
-    do iik=k_sta,k_end
-    do iob=1,iobmax
-!$OMP parallel
-!$OMP do private(iatom,ikoa,lm,jj,sumbox) schedule(static, 1)
-      do iatom=1,MI
-        ikoa=Kion(iatom)
-        loop_lm2 : do lm=1,(Mlps(ikoa)+1)**2
-          if ( abs(uVu(lm,iatom))<1.d-5 ) cycle loop_lm2
-          sumbox=0.d0
-          do jj=1,Mps(iatom)
-            sumbox=sumbox+uV(jj,lm,iatom)*  &
-                     tpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik)
-          end do
-          uVpsibox3(lm,iatom,iob,iik)=sumbox*Hvol/uVu(lm,iatom)
-        end do loop_lm2
-      end do
-!$OMP end do nowait
-!$OMP end parallel
-    end do
-    end do
-  case(3)
-    do iik=k_sta,k_end
-    do iob=1,iobmax
-!$OMP parallel
-!$OMP do private(iatom,ikoa,lm,jj,sumbox) schedule(static, 1)
-      do iatom=1,MI
-        ikoa=Kion(iatom)
-        loop_lm4 : do lm=1,(Mlps(ikoa)+1)**2
-          if ( abs(uVu(lm,iatom))<1.d-5 ) cycle loop_lm4
-          sumbox=0.d0
-          do jj=1,Mps(iatom)
-            sumbox=sumbox+uV(jj,lm,iatom)*tpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik)*ekr(jj,iatom,iik)
-          end do
-          uVpsibox3(lm,iatom,iob,iik)=sumbox*Hvol/uVu(lm,iatom)
-        end do loop_lm4
-      end do
-!$OMP end do nowait
-!$OMP end parallel
-    end do
-    end do
-  end select
-
-  elp3(705)=get_wtime()
-  call comm_summation(uVpsibox3,uVpsibox4,maxlm*MI*iobmax*k_num,nproc_group_korbital)
-  elp3(706)=get_wtime()
-  elp3(744)=elp3(744)+elp3(706)-elp3(705)
-
-end if
-
-! Pseudopotential 2 (non-local)
-if(iflag_ps==1) then
-  select case(iperiodic)
-  case(0)
-    do iik=k_sta,k_end
-    do iob=1,iobmax
-      do iatom=1,MI
-        ikoa=Kion(iatom)
-!$OMP parallel do private(jj,lm)
-        do jj=1,Mps(iatom)
-          do lm=1,(Mlps(ikoa)+1)**2
-            htpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik)= &
-              htpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik) + &
-                uVpsibox4(lm,iatom,iob,iik)*uV(jj,lm,iatom)
-          end do
-        end do
-      end do
-    end do
-    end do
-  case(3)
-    do iik=k_sta,k_end
-    do iob=1,iobmax
-      do iatom=1,MI
-        ikoa=Kion(iatom)
-!$OMP parallel do private(jj,lm)
-        do jj=1,Mps(iatom)
-          do lm=1,(Mlps(ikoa)+1)**2
-            htpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik)= &
-              htpsi(Jxyz(1,jj,iatom),Jxyz(2,jj,iatom),Jxyz(3,jj,iatom),iob,iik) + &
-                uVpsibox4(lm,iatom,iob,iik)*uV(jj,lm,iatom)*conjg(ekr(jj,iatom,iik))
-          end do
-        end do
-      end do
-    end do
-    end do
-  end select
-end if
-
-if(isub==1)then
-  if(N_hamil==1)then
-    if(ikind_eext==0)then
-      call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,5)
-    else
-      call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,4)
-    end if
-  else if(N_hamil==4)then
-    if(nn==1)then
+  if(isub==1)then
+    if(N_hamil==1)then
       if(ikind_eext==0)then
-        call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,1)
+        call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,5)
       else
-        call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,0)
+        call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,4)
       end if
-    else if(nn==3)then
-      call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,-1)
-    else if(nn==4)then
-      call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,6)
-    end if
-  else
-    if(nn==1)then
-      if(ikind_eext==0)then
-        call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,1)
-      else
-        call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,0)
+    else if(N_hamil==4)then
+      if(nn==1)then
+        if(ikind_eext==0)then
+          call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,1)
+        else
+          call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,0)
+        end if
+      else if(nn==3)then
+        call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,-1)
+      else if(nn==4)then
+        call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,6)
       end if
-    else if(nn==N_hamil)then
-      call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,6)
     else
-      call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,2)
+      if(nn==1)then
+        if(ikind_eext==0)then
+          call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,1)
+        else
+          call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,0)
+        end if
+      else if(nn==N_hamil)then
+        call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,6)
+      else
+        call add_polynomial(tpsi,htpsi,tpsi_out,iobmax,nn,2)
+      end if
     end if
   end if
-end if
+  
+case(3)
+  esp2(:,:)=0.d0
+
+  if(iob_w==0) iob_w=iobmax
+  iob_end=(iobmax-1)/iob_w + 1
+
+  if(iz_w==0) iz_w=mg_num(3)
+  iz_end=(mg_num(3)-1)/iz_w + 1
+
+  do iob_b=1,iob_end
+  do iz_b=1,iz_end
+
+    iob_s=(iob_b-1)*iob_w + 1
+    iob_e=iob_s + iob_w - 1
+    iob_e=min(iob_e,iobmax)
+
+    iz_s=(iz_b-1)*iz_w + mg_sta(3)
+    iz_e=iz_s + iz_w - 1
+    iz_e=min(iz_e,mg_end(3))
+
+    do iik=k_sta,k_end
+      fdN0=0.5d0*ksquare(iik)-0.5d0*cNmat(0,Nd)*f0
+      do jj=1,3
+        do ind=1,4
+          fdN1(ind,jj)=-0.5d0*cNmat(ind,Nd)/Hgs(jj)**2-zi*k_rd(jj,iik)*bNmat(ind,Nd)/Hgs(jj)
+          fdN2(ind,jj)=-0.5d0*cNmat(ind,Nd)/Hgs(jj)**2+zi*k_rd(jj,iik)*bNmat(ind,Nd)/Hgs(jj)
+        end do
+      end do
+      do iob=iob_s,iob_e
+        call calc_allob(iob,iob_allob)
+        call set_ispin(iob_allob,jspin)
+!$OMP parallel do collapse(2) private(ix,iy,iz)
+        do iz=iz_s,iz_e
+        do iy=iwk3sta(2),iwk3end(2)
+        do ix=iwk3sta(1),iwk3end(1)
+          htpsi(ix,iy,iz,iob,iik) = htpsi(ix,iy,iz,iob,iik)                &
+            + ( tVlocal(ix,iy,iz,jspin)+fdN0)*tpsi(ix,iy,iz,iob,iik)  &
+            +fdN1(1,1)* tpsi(ix+1,iy,iz,iob,iik) + fdN2(1,1)* tpsi(ix-1,iy,iz,iob,iik)  &
+            +fdN1(2,1)* tpsi(ix+2,iy,iz,iob,iik) + fdN2(2,1)* tpsi(ix-2,iy,iz,iob,iik)  &
+            +fdN1(3,1)* tpsi(ix+3,iy,iz,iob,iik) + fdN2(3,1)* tpsi(ix-3,iy,iz,iob,iik)  &
+            +fdN1(4,1)* tpsi(ix+4,iy,iz,iob,iik) + fdN2(4,1)* tpsi(ix-4,iy,iz,iob,iik)  &
+            +fdN1(1,2)* tpsi(ix,iy+1,iz,iob,iik) + fdN2(1,2)* tpsi(ix,iy-1,iz,iob,iik)  &
+            +fdN1(2,2)* tpsi(ix,iy+2,iz,iob,iik) + fdN2(2,2)* tpsi(ix,iy-2,iz,iob,iik)  &
+            +fdN1(3,2)* tpsi(ix,iy+3,iz,iob,iik) + fdN2(3,2)* tpsi(ix,iy-3,iz,iob,iik)  &
+            +fdN1(4,2)* tpsi(ix,iy+4,iz,iob,iik) + fdN2(4,2)* tpsi(ix,iy-4,iz,iob,iik)  &
+            +fdN1(1,3)* tpsi(ix,iy,iz+1,iob,iik) + fdN2(1,3)* tpsi(ix,iy,iz-1,iob,iik)  &
+            +fdN1(2,3)* tpsi(ix,iy,iz+2,iob,iik) + fdN2(2,3)* tpsi(ix,iy,iz-2,iob,iik)  &
+            +fdN1(3,3)* tpsi(ix,iy,iz+3,iob,iik) + fdN2(3,3)* tpsi(ix,iy,iz-3,iob,iik)  &
+            +fdN1(4,3)* tpsi(ix,iy,iz+4,iob,iik) + fdN2(4,3)* tpsi(ix,iy,iz-4,iob,iik)
+        end do
+        end do
+        end do
+        if(isub==1)then
+          if(N_hamil==1)then
+            if(ikind_eext==0)then
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,5,iik,iob,iz_s,iz_e)
+            else
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,4,iik,iob,iz_s,iz_e)
+            end if
+          else if(N_hamil==4)then
+            if(nn==1)then
+              if(ikind_eext==0)then
+                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,1,iik,iob,iz_s,iz_e)
+              else
+                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,0,iik,iob,iz_s,iz_e)
+              end if
+            else if(nn==3)then
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,-1,iik,iob,iz_s,iz_e)
+            else if(nn==4)then
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,6,iik,iob,iz_s,iz_e)
+            end if
+          else
+            if(nn==1)then
+              if(ikind_eext==0)then
+                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,1,iik,iob,iz_s,iz_e)
+              else
+                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,0,iik,iob,iz_s,iz_e)
+              end if
+            else if(nn==N_hamil)then
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,6,iik,iob,iz_s,iz_e)
+            else
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,2,iik,iob,iz_s,iz_e)
+            end if
+          end if
+        end if
+    
+      end do
+    end do
+  end do
+  end do
+
+end select
 
 return
 
