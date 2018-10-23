@@ -60,11 +60,12 @@ real(8) :: f0
 integer :: iobmax
 integer :: iob_allob
 
-integer :: iob_b,iz_b
-integer :: iob_end,iz_end
+integer :: iob_b,iz_b,iy_b
+integer :: iob_end,iz_end,iy_end
 
 integer :: iob_s,iob_e
 integer :: iz_s,iz_e
+integer :: iy_s,iy_e
 
 f0=(1.d0/Hgs(1)**2   &
    +1.d0/Hgs(2)**2   &
@@ -355,8 +356,12 @@ case(3)
   if(iz_w==0) iz_w=mg_num(3)
   iz_end=(mg_num(3)-1)/iz_w + 1
 
+  if(iy_w==0) iy_w=mg_num(2)
+  iy_end=(mg_num(2)-1)/iy_w + 1
+
   do iob_b=1,iob_end
   do iz_b=1,iz_end
+  do iy_b=1,iy_end
 
     iob_s=(iob_b-1)*iob_w + 1
     iob_e=iob_s + iob_w - 1
@@ -365,6 +370,10 @@ case(3)
     iz_s=(iz_b-1)*iz_w + mg_sta(3)
     iz_e=iz_s + iz_w - 1
     iz_e=min(iz_e,mg_end(3))
+
+    iy_s=(iy_b-1)*iy_w + mg_sta(2)
+    iy_e=iy_s + iy_w - 1
+    iy_e=min(iy_e,mg_end(2))
 
     do iik=k_sta,k_end
       fdN0=0.5d0*ksquare(iik)-0.5d0*cNmat(0,Nd)*f0
@@ -379,7 +388,7 @@ case(3)
         call set_ispin(iob_allob,jspin)
 !$OMP parallel do collapse(2) private(ix,iy,iz)
         do iz=iz_s,iz_e
-        do iy=iwk3sta(2),iwk3end(2)
+        do iy=iy_s,iy_e
         do ix=iwk3sta(1),iwk3end(1)
           htpsi(ix,iy,iz,iob,iik) = htpsi(ix,iy,iz,iob,iik)                &
             + ( tVlocal(ix,iy,iz,jspin)+fdN0)*tpsi(ix,iy,iz,iob,iik)  &
@@ -401,39 +410,40 @@ case(3)
         if(isub==1)then
           if(N_hamil==1)then
             if(ikind_eext==0)then
-              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,5,iik,iob,iz_s,iz_e)
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,5,iik,iob,iz_s,iz_e,iy_s,iy_e)
             else
-              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,4,iik,iob,iz_s,iz_e)
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,4,iik,iob,iz_s,iz_e,iy_s,iy_e)
             end if
           else if(N_hamil==4)then
             if(nn==1)then
               if(ikind_eext==0)then
-                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,1,iik,iob,iz_s,iz_e)
+                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,1,iik,iob,iz_s,iz_e,iy_s,iy_e)
               else
-                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,0,iik,iob,iz_s,iz_e)
+                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,0,iik,iob,iz_s,iz_e,iy_s,iy_e)
               end if
             else if(nn==3)then
-              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,-1,iik,iob,iz_s,iz_e)
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,-1,iik,iob,iz_s,iz_e,iy_s,iy_e)
             else if(nn==4)then
-              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,6,iik,iob,iz_s,iz_e)
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,6,iik,iob,iz_s,iz_e,iy_s,iy_e)
             end if
           else
             if(nn==1)then
               if(ikind_eext==0)then
-                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,1,iik,iob,iz_s,iz_e)
+                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,1,iik,iob,iz_s,iz_e,iy_s,iy_e)
               else
-                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,0,iik,iob,iz_s,iz_e)
+                call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,0,iik,iob,iz_s,iz_e,iy_s,iy_e)
               end if
             else if(nn==N_hamil)then
-              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,6,iik,iob,iz_s,iz_e)
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,6,iik,iob,iz_s,iz_e,iy_s,iy_e)
             else
-              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,2,iik,iob,iz_s,iz_e)
+              call add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,2,iik,iob,iz_s,iz_e,iy_s,iy_e)
             end if
           end if
         end if
     
       end do
     end do
+  end do
   end do
   end do
 

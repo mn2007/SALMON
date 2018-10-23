@@ -250,7 +250,8 @@ contains
 
     namelist/performance/ &
       & iob_w, &
-      & iz_w
+      & iz_w, &
+      & iy_w
 
     namelist/system/ &
       & iperiodic, &
@@ -594,6 +595,7 @@ contains
 !! == default for &performance
     iob_w             = 0
     iz_w              = 0
+    iy_w              = 0
 
 !! == default for &system
     iperiodic          = 0
@@ -977,6 +979,7 @@ contains
 !! == bcast for &performance
     call comm_bcast(iob_w            ,nproc_group_global)
     call comm_bcast(iz_w             ,nproc_group_global)
+    call comm_bcast(iy_w             ,nproc_group_global)
 !! == bcast for &system
     call comm_bcast(iperiodic,nproc_group_global)
     call comm_bcast(ispin    ,nproc_group_global)
@@ -1583,6 +1586,7 @@ contains
       write(fh_variables_log, '("#namelist: ",A,", status=",I3)') 'performance', inml_performance
       write(fh_variables_log, '("#",4X,A,"=",I5)') 'iob_w', iob_w
       write(fh_variables_log, '("#",4X,A,"=",I5)') 'iz_w', iz_w
+      write(fh_variables_log, '("#",4X,A,"=",I5)') 'iy_w', iy_w
 
       if(inml_system >0)ierr_nml = ierr_nml +1
       write(fh_variables_log, '("#namelist: ",A,", status=",I3)') 'system', inml_system

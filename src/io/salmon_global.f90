@@ -81,6 +81,7 @@ module salmon_global
 !! &performance
   integer        :: iob_w
   integer        :: iz_w
+  integer        :: iy_w
 
 !! &system
   integer        :: iperiodic

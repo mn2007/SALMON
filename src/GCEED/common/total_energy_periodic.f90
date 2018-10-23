@@ -73,11 +73,12 @@ real(8) :: sum_temp11, sum_temp12, sum_temp13
 
 integer :: iobmax
 
-integer :: iob_b,iz_b
-integer :: iob_end,iz_end2
+integer :: iob_b,iz_b,iy_b
+integer :: iob_end,iz_end2,iy_end2
 
 integer :: iob_s,iob_e
 integer :: iz_s,iz_e
+integer :: iy_s,iy_e
 
 if(iperiodic==1)then
   Etot=0.d0
@@ -107,12 +108,16 @@ iob_end=(iobmax-1)/iob_w + 1
 if(iz_w==0) iz_w=mg_num(3)
 iz_end2=(mg_num(3)-1)/iz_w + 1
 
+if(iy_w==0) iy_w=mg_num(2)
+iy_end2=(mg_num(2)-1)/iy_w + 1
+
 sum_temp11=0.d0
 !$OMP parallel do reduction(+:sum_temp11) &
-!$OMP private(ix,iy,iz,iob,iik,iob_b,iz_b,iob_s,iob_e,iz_s,iz_e,  &
+!$OMP private(ix,iy,iz,iob,iik,iob_b,iz_b,iy_b,iob_s,iob_e,iz_s,iz_e,iy_s,iy_e,  &
 !$OMP         fdN0,fdN1,fdN2,p_allob,Ekin_tmp)
 do iob_b=1,iob_end
 do iz_b=1,iz_end2
+do iy_b=1,iy_end2
 
   iob_s=(iob_b-1)*iob_w + 1
   iob_e=iob_s + iob_w - 1
@@ -121,6 +126,10 @@ do iz_b=1,iz_end2
   iz_s=(iz_b-1)*iz_w + mg_sta(3)
   iz_e=iz_s + iz_w - 1
   iz_e=min(iz_e,mg_end(3))
+
+  iy_s=(iy_b-1)*iy_w + mg_sta(2)
+  iy_e=iy_s + iy_w - 1
+  iy_e=min(iy_e,mg_end(2))
 
   do iik=k_sta,k_end
     fdN0=-0.5d0*cNmat(0,Nd)*f0
@@ -133,7 +142,7 @@ do iz_b=1,iz_end2
     do iob=iob_s,iob_e
       call calc_allob(iob,p_allob)
       do iz=iz_s,iz_e
-      do iy=mg_sta(2),mg_end(2)
+      do iy=iy_s,iy_e
       do ix=mg_sta(1),mg_end(1)
         htpsi(ix,iy,iz,iob,iik) =  &
            fdN0*tzpsi_in(ix,iy,iz,iob,iik)      &
@@ -153,7 +162,7 @@ do iz_b=1,iz_end2
       end do
       end do
       do iz=iz_s,iz_e
-      do iy=mg_sta(2),mg_end(2)
+      do iy=iy_s,iy_e
       do ix=mg_sta(1),mg_end(1)
         sum_temp11=sum_temp11 + rocc(iob,iik)*wtk(iik)*conjg(tzpsi_in(ix,iy,iz,iob,iik))*htpsi(ix,iy,iz,iob,iik)*Hvol
       end do
@@ -161,6 +170,7 @@ do iz_b=1,iz_end2
       end do
     end do
   end do
+end do
 end do
 end do
 
