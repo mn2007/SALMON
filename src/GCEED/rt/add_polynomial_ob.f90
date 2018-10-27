@@ -17,7 +17,7 @@
 !         +2:  2nd or larger loop (zpsi+htpsi) / +0: 1st loop (tpsi+htpsi)
 !         +4:  calculation of rhobox / +0: no calculation of rhobox
 !         -1:  special version for N_hamil=4 and nn=3
-subroutine add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,ifunc,iiik,iiob,iz_s,iz_e)
+subroutine add_polynomial_ob(tpsi,htpsi,tpsi_out,iobmax,nn,ifunc,iiik,iiob,iz_s,iz_e,iy_s,iy_e)
 use scf_data
 implicit none
 complex(8) :: tpsi(iwk2sta(1):iwk2end(1)+1,iwk2sta(2):iwk2end(2),iwk2sta(3):iwk2end(3),   &
@@ -37,11 +37,12 @@ complex(8), parameter :: zi=(0.d0,1.d0)
 integer :: iob_allob
 integer :: iiik,iiob
 integer :: iz_s,iz_e
+integer :: iy_s,iy_e
 
 if(ifunc==0)then
 !$OMP parallel do collapse(2) private(iz,iy,ix) 
   do iz=iz_s,iz_e
-  do iy=mg_sta(2),mg_end(2)
+  do iy=iy_s,iy_e
   do ix=mg_sta(1),mg_end(1)
     htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
     tpsi_out(ix,iy,iz,iiob,iiik)=tpsi(ix,iy,iz,iiob,iiik)+htpsi(ix,iy,iz,iiob,iiik)
@@ -52,7 +53,7 @@ else if(ifunc==1)then
   cbox=0.d0
 !$OMP parallel do reduction(+:cbox) collapse(2) private(iz,iy,ix) 
   do iz=iz_s,iz_e
-  do iy=mg_sta(2),mg_end(2)
+  do iy=iy_s,iy_e
   do ix=mg_sta(1),mg_end(1)
     cbox=cbox+conjg(tpsi(ix,iy,iz,iiob,iiik))*htpsi(ix,iy,iz,iiob,iiik)
     htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
@@ -64,7 +65,7 @@ else if(ifunc==1)then
 else if(ifunc==2)then
 !$OMP parallel do collapse(2) private(iz,iy,ix) 
   do iz=iz_s,iz_e
-  do iy=mg_sta(2),mg_end(2)
+  do iy=iy_s,iy_e
   do ix=mg_sta(1),mg_end(1)
     htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
     tpsi_out(ix,iy,iz,iiob,iiik)=tpsi_out(ix,iy,iz,iiob,iiik)+htpsi(ix,iy,iz,iiob,iiik)
@@ -75,7 +76,7 @@ else if(ifunc==3)then
   cbox=0.d0
 !$OMP parallel do reduction(+:cbox) collapse(2) private(iz,iy,ix) 
   do iz=iz_s,iz_e
-  do iy=mg_sta(2),mg_end(2)
+  do iy=iy_s,iy_e
   do ix=mg_sta(1),mg_end(1)
     cbox=cbox+conjg(tpsi(ix,iy,iz,iiob,iiik))*htpsi(ix,iy,iz,iiob,iiik)
     htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
@@ -89,7 +90,7 @@ else if(ifunc==4)then
     call calc_allob(iiob,iob_allob)
 !$OMP parallel do collapse(2) private(iz,iy,ix) 
     do iz=iz_s,iz_e
-    do iy=mg_sta(2),mg_end(2)
+    do iy=iy_s,iy_e
     do ix=mg_sta(1),mg_end(1)
       htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
       tpsi_out(ix,iy,iz,iiob,iiik)=tpsi(ix,iy,iz,iiob,iiik)+htpsi(ix,iy,iz,iiob,iiik)
@@ -103,7 +104,7 @@ else if(ifunc==4)then
     if(iob_allob<=MST(1))then
 !$OMP parallel do collapse(2) private(iz,iy,ix) 
       do iz=iz_s,iz_e
-      do iy=mg_sta(2),mg_end(2)
+      do iy=iy_s,iy_e
       do ix=mg_sta(1),mg_end(1)
         htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
         tpsi_out(ix,iy,iz,iiob,iiik)=tpsi(ix,iy,iz,iiob,iiik)+htpsi(ix,iy,iz,iiob,iiik)
@@ -115,7 +116,7 @@ else if(ifunc==4)then
     else
 !$OMP parallel do collapse(2) private(iz,iy,ix) 
       do iz=iz_s,iz_e
-      do iy=mg_sta(2),mg_end(2)
+      do iy=iy_s,iy_e
       do ix=mg_sta(1),mg_end(1)
         htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
         tpsi_out(ix,iy,iz,iiob,iiik)=tpsi(ix,iy,iz,iiob,iiik)+htpsi(ix,iy,iz,iiob,iiik)
@@ -132,7 +133,7 @@ else if(ifunc==5)then
     cbox=0.d0
 !$OMP parallel do reduction(+:cbox) collapse(2) private(iz,iy,ix)
     do iz=iz_s,iz_e
-    do iy=mg_sta(2),mg_end(2)
+    do iy=iy_s,iy_e
     do ix=mg_sta(1),mg_end(1)
       cbox=cbox+conjg(tpsi(ix,iy,iz,iiob,iiik))*htpsi(ix,iy,iz,iiob,iiik)
       htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
@@ -149,7 +150,7 @@ else if(ifunc==5)then
     if(iob_allob<=MST(1))then
 !$OMP parallel do reduction(+:cbox) collapse(2) private(iz,iy,ix) 
       do iz=iz_s,iz_e
-      do iy=mg_sta(2),mg_end(2)
+      do iy=iy_s,iy_e
       do ix=mg_sta(1),mg_end(1)
         cbox=cbox+conjg(tpsi(ix,iy,iz,iiob,iiik))*htpsi(ix,iy,iz,iiob,iiik)
         htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
@@ -162,7 +163,7 @@ else if(ifunc==5)then
     else
 !$OMP parallel do reduction(+:cbox) collapse(2) private(iz,iy,ix) 
       do iz=iz_s,iz_e
-      do iy=mg_sta(2),mg_end(2)
+      do iy=iy_s,iy_e
       do ix=mg_sta(1),mg_end(1)
         cbox=cbox+conjg(tpsi(ix,iy,iz,iiob,iiik))*htpsi(ix,iy,iz,iiob,iiik)
         htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
@@ -180,7 +181,7 @@ else if(ifunc==6)then
     call calc_allob(iiob,iob_allob)
 !$OMP parallel do collapse(2) private(iz,iy,ix) 
     do iz=iz_s,iz_e
-    do iy=mg_sta(2),mg_end(2)
+    do iy=iy_s,iy_e
     do ix=mg_sta(1),mg_end(1)
       htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
       tpsi_out(ix,iy,iz,iiob,iiik)=tpsi_out(ix,iy,iz,iiob,iiik)+htpsi(ix,iy,iz,iiob,iiik)
@@ -194,7 +195,7 @@ else if(ifunc==6)then
     if(iob_allob<=MST(1))then
 !$OMP parallel do collapse(2) private(iz,iy,ix) 
       do iz=iz_s,iz_e
-      do iy=mg_sta(2),mg_end(2)
+      do iy=iy_s,iy_e
       do ix=mg_sta(1),mg_end(1)
         htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
         tpsi_out(ix,iy,iz,iiob,iiik)=tpsi_out(ix,iy,iz,iiob,iiik)+htpsi(ix,iy,iz,iiob,iiik)
@@ -206,7 +207,7 @@ else if(ifunc==6)then
     else
 !$OMP parallel do collapse(2) private(iz,iy,ix) 
       do iz=iz_s,iz_e
-      do iy=mg_sta(2),mg_end(2)
+      do iy=iy_s,iy_e
       do ix=mg_sta(1),mg_end(1)
         htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
         tpsi_out(ix,iy,iz,iiob,iiik)=tpsi_out(ix,iy,iz,iiob,iiik)+htpsi(ix,iy,iz,iiob,iiik)
@@ -222,7 +223,7 @@ else if(ifunc==7)then
     cbox=0.d0
 !$OMP parallel do reduction(+:cbox) collapse(2) private(iz,iy,ix) 
     do iz=iz_s,iz_e
-    do iy=mg_sta(2),mg_end(2)
+    do iy=iy_s,iy_e
     do ix=mg_sta(1),mg_end(1)
       cbox=cbox+conjg(tpsi(ix,iy,iz,iiob,iiik))*htpsi(ix,iy,iz,iiob,iiik)
       htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
@@ -239,7 +240,7 @@ else if(ifunc==7)then
     if(iob_allob<=MST(1))then
 !$OMP parallel do reduction(+:cbox) collapse(2) private(iz,iy,ix) 
       do iz=iz_s,iz_e
-      do iy=mg_sta(2),mg_end(2)
+      do iy=iy_s,iy_e
       do ix=mg_sta(1),mg_end(1)
         cbox=cbox+conjg(tpsi(ix,iy,iz,iiob,iiik))*htpsi(ix,iy,iz,iiob,iiik)
         htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
@@ -252,7 +253,7 @@ else if(ifunc==7)then
     else
 !$OMP parallel do reduction(+:cbox) collapse(2) private(iz,iy,ix) 
       do iz=iz_s,iz_e
-      do iy=mg_sta(2),mg_end(2)
+      do iy=iy_s,iy_e
       do ix=mg_sta(1),mg_end(1)
         cbox=cbox+conjg(tpsi(ix,iy,iz,iiob,iiik))*htpsi(ix,iy,iz,iiob,iiik)
         htpsi(ix,iy,iz,iiob,iiik)=-zi*dt*htpsi(ix,iy,iz,iiob,iiik)/dble(nn)
@@ -268,7 +269,7 @@ else if(ifunc==7)then
 else if(ifunc==-1)then
 !$OMP parallel do collapse(2) private(iz,iy,ix) 
   do iz=iz_s,iz_e
-  do iy=mg_sta(2),mg_end(2)
+  do iy=iy_s,iy_e
   do ix=mg_sta(1),mg_end(1)
     tpsi(ix,iy,iz,iiob,iiik)=-zi*dt*tpsi(ix,iy,iz,iiob,iiik)/dble(nn-1)
     htpsi(ix,iy,iz,iiob,iiik)=(-zi*dt)**2*htpsi(ix,iy,iz,iiob,iiik)/dble(nn-1)/dble(nn)
