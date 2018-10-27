@@ -35,6 +35,7 @@ module inputoutput
   integer :: inml_control
   integer :: inml_units
   integer :: inml_parallel
+  integer :: inml_performance
   integer :: inml_system
   integer :: inml_pseudo
   integer :: inml_functional
@@ -247,6 +248,10 @@ contains
       & num_datafiles_in, &
       & num_datafiles_out
 
+    namelist/performance/ &
+      & iob_w, &
+      & iz_w
+
     namelist/system/ &
       & iperiodic, &
       & ispin, &
@@ -258,7 +263,6 @@ contains
       & nelec, &
       & nelec_spin, &
       & temperature, &
-      & temperature_k, &
       & nelem, &
       & natom, &
       & file_atom_coor, &
@@ -859,6 +863,9 @@ contains
       read(fh_namelist, nml=parallel, iostat=inml_parallel)
       rewind(fh_namelist)
 
+      read(fh_namelist, nml=performance, iostat=inml_performance)
+      rewind(fh_namelist)
+
       read(fh_namelist, nml=system, iostat=inml_system)
       rewind(fh_namelist)
 
@@ -965,6 +972,9 @@ contains
     call comm_bcast(nproc_domain_s   ,nproc_group_global)
     call comm_bcast(num_datafiles_in ,nproc_group_global)
     call comm_bcast(num_datafiles_out,nproc_group_global)
+!! == bcast for &performance
+    call comm_bcast(iob_w            ,nproc_group_global)
+    call comm_bcast(iz_w             ,nproc_group_global)
 !! == bcast for &system
     call comm_bcast(iperiodic,nproc_group_global)
     call comm_bcast(ispin    ,nproc_group_global)
@@ -1568,6 +1578,11 @@ contains
       write(fh_variables_log, '("#",4X,A,"=",I5)') 'nproc_domain_s(3)', nproc_domain_s(3)
       write(fh_variables_log, '("#",4X,A,"=",I5)') 'num_datafiles_in', num_datafiles_in
       write(fh_variables_log, '("#",4X,A,"=",I5)') 'num_datafiles_out', num_datafiles_out
+
+      if(inml_performance >0)ierr_nml = ierr_nml +1
+      write(fh_variables_log, '("#namelist: ",A,", status=",I3)') 'performance', inml_performance
+      write(fh_variables_log, '("#",4X,A,"=",I5)') 'iob_w', iob_w
+      write(fh_variables_log, '("#",4X,A,"=",I5)') 'iz_w', iz_w
 
       if(inml_system >0)ierr_nml = ierr_nml +1
       write(fh_variables_log, '("#namelist: ",A,", status=",I3)') 'system', inml_system

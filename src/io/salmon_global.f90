@@ -78,6 +78,10 @@ module salmon_global
   integer        :: num_datafiles_in
   integer        :: num_datafiles_out
 
+!! &performance
+  integer        :: iob_w
+  integer        :: iz_w
+
 !! &system
   integer        :: iperiodic
   integer        :: ispin

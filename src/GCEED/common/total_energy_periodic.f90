@@ -69,6 +69,16 @@ real(8) :: sum_temp4(4)
 integer :: iy_sta,iy_end,iz_sta,iz_end
 real(8) :: rbox13,rbox14,rbox15,rbox16
 
+real(8) :: sum_temp11, sum_temp12, sum_temp13
+
+integer :: iobmax
+
+integer :: iob_b,iz_b
+integer :: iob_end,iz_end2
+
+integer :: iob_s,iob_e
+integer :: iz_s,iz_e
+
 if(iperiodic==1)then
   Etot=0.d0
 
@@ -89,53 +99,84 @@ elp3(1451)=elp3(1451)+elp3(1402)-elp3(1401)
 
 Ebox1(1:9)=0.d0
 
-do iik=k_sta,k_end
-  fdN0=-0.5d0*cNmat(0,Nd)*f0
-  do jj=1,3
-    do ind=1,4
-       fdN1(ind,jj)=-0.5d0*cNmat(ind,Nd)/Hgs(jj)**2-zi*k_rd(jj,iik)*bNmat(ind,Nd)/Hgs(jj)
-       fdN2(ind,jj)=-0.5d0*cNmat(ind,Nd)/Hgs(jj)**2+zi*k_rd(jj,iik)*bNmat(ind,Nd)/Hgs(jj)
+call calc_pmax(iobmax)
+
+if(iob_w==0) iob_w=iobmax
+iob_end=(iobmax-1)/iob_w + 1
+
+if(iz_w==0) iz_w=mg_num(3)
+iz_end2=(mg_num(3)-1)/iz_w + 1
+
+sum_temp11=0.d0
+!$OMP parallel do reduction(+:sum_temp11) &
+!$OMP private(ix,iy,iz,iob,iik,iob_b,iz_b,iob_s,iob_e,iz_s,iz_e,  &
+!$OMP         fdN0,fdN1,fdN2,p_allob,Ekin_tmp)
+do iob_b=1,iob_end
+do iz_b=1,iz_end2
+
+  iob_s=(iob_b-1)*iob_w + 1
+  iob_e=iob_s + iob_w - 1
+  iob_e=min(iob_e,iobmax)
+
+  iz_s=(iz_b-1)*iz_w + mg_sta(3)
+  iz_e=iz_s + iz_w - 1
+  iz_e=min(iz_e,mg_end(3))
+
+  do iik=k_sta,k_end
+    fdN0=-0.5d0*cNmat(0,Nd)*f0
+    do jj=1,3
+      do ind=1,4
+        fdN1(ind,jj)=-0.5d0*cNmat(ind,Nd)/Hgs(jj)**2-zi*k_rd(jj,iik)*bNmat(ind,Nd)/Hgs(jj)
+        fdN2(ind,jj)=-0.5d0*cNmat(ind,Nd)/Hgs(jj)**2+zi*k_rd(jj,iik)*bNmat(ind,Nd)/Hgs(jj)
+      end do
+    end do
+    do iob=iob_s,iob_e
+      call calc_allob(iob,p_allob)
+      do iz=iz_s,iz_e
+      do iy=mg_sta(2),mg_end(2)
+      do ix=mg_sta(1),mg_end(1)
+        htpsi(ix,iy,iz,iob,iik) =  &
+           fdN0*tzpsi_in(ix,iy,iz,iob,iik)      &
+          +fdN1(1,1)* tzpsi_in(ix+1,iy,iz,iob,iik) + fdN2(1,1) * tzpsi_in(ix-1,iy,iz,iob,iik)      &
+          +fdN1(2,1)* tzpsi_in(ix+2,iy,iz,iob,iik) + fdN2(2,1) * tzpsi_in(ix-2,iy,iz,iob,iik)      &
+          +fdN1(3,1)* tzpsi_in(ix+3,iy,iz,iob,iik) + fdN2(3,1) * tzpsi_in(ix-3,iy,iz,iob,iik)      &
+          +fdN1(4,1)* tzpsi_in(ix+4,iy,iz,iob,iik) + fdN2(4,1) * tzpsi_in(ix-4,iy,iz,iob,iik)      &
+          +fdN1(1,2)* tzpsi_in(ix,iy+1,iz,iob,iik) + fdN2(1,2) * tzpsi_in(ix,iy-1,iz,iob,iik)      &
+          +fdN1(2,2)* tzpsi_in(ix,iy+2,iz,iob,iik) + fdN2(2,2) * tzpsi_in(ix,iy-2,iz,iob,iik)      &
+          +fdN1(3,2)* tzpsi_in(ix,iy+3,iz,iob,iik) + fdN2(3,2) * tzpsi_in(ix,iy-3,iz,iob,iik)      &
+          +fdN1(4,2)* tzpsi_in(ix,iy+4,iz,iob,iik) + fdN2(4,2) * tzpsi_in(ix,iy-4,iz,iob,iik)      &
+          +fdN1(1,3)* tzpsi_in(ix,iy,iz+1,iob,iik) + fdN2(1,3) * tzpsi_in(ix,iy,iz-1,iob,iik)      &
+          +fdN1(2,3)* tzpsi_in(ix,iy,iz+2,iob,iik) + fdN2(2,3) * tzpsi_in(ix,iy,iz-2,iob,iik)      &
+          +fdN1(3,3)* tzpsi_in(ix,iy,iz+3,iob,iik) + fdN2(3,3) * tzpsi_in(ix,iy,iz-3,iob,iik)      &
+          +fdN1(4,3)* tzpsi_in(ix,iy,iz+4,iob,iik) + fdN2(4,3) * tzpsi_in(ix,iy,iz-4,iob,iik)
+      end do
+      end do
+      end do
+      do iz=iz_s,iz_e
+      do iy=mg_sta(2),mg_end(2)
+      do ix=mg_sta(1),mg_end(1)
+        sum_temp11=sum_temp11 + rocc(iob,iik)*wtk(iik)*conjg(tzpsi_in(ix,iy,iz,iob,iik))*htpsi(ix,iy,iz,iob,iik)*Hvol
+      end do
+      end do
+      end do
     end do
   end do
-  do iob=1,iobnum
+end do
+end do
+
+sum_temp12=0.d0
+!$OMP parallel do reduction(+:sum_temp12) collapse(2) private(iik,iob)
+do iik=k_sta,k_end
+  do iob=1,iobmax
     call calc_allob(iob,p_allob)
-!$OMP parallel do private(ix,iy,iz)
-    do iz=mg_sta(3),mg_end(3)
-    do iy=mg_sta(2),mg_end(2)
-    do ix=mg_sta(1),mg_end(1)
-      htpsi(ix,iy,iz,iob,iik) =  &
-         fdN0*tzpsi_in(ix,iy,iz,iob,iik)      &
-        +fdN1(1,1)* tzpsi_in(ix+1,iy,iz,iob,iik) + fdN2(1,1) * tzpsi_in(ix-1,iy,iz,iob,iik)      &
-        +fdN1(2,1)* tzpsi_in(ix+2,iy,iz,iob,iik) + fdN2(2,1) * tzpsi_in(ix-2,iy,iz,iob,iik)      &
-        +fdN1(3,1)* tzpsi_in(ix+3,iy,iz,iob,iik) + fdN2(3,1) * tzpsi_in(ix-3,iy,iz,iob,iik)      &
-        +fdN1(4,1)* tzpsi_in(ix+4,iy,iz,iob,iik) + fdN2(4,1) * tzpsi_in(ix-4,iy,iz,iob,iik)      &
-        +fdN1(1,2)* tzpsi_in(ix,iy+1,iz,iob,iik) + fdN2(1,2) * tzpsi_in(ix,iy-1,iz,iob,iik)      &
-        +fdN1(2,2)* tzpsi_in(ix,iy+2,iz,iob,iik) + fdN2(2,2) * tzpsi_in(ix,iy-2,iz,iob,iik)      &
-        +fdN1(3,2)* tzpsi_in(ix,iy+3,iz,iob,iik) + fdN2(3,2) * tzpsi_in(ix,iy-3,iz,iob,iik)      &
-        +fdN1(4,2)* tzpsi_in(ix,iy+4,iz,iob,iik) + fdN2(4,2) * tzpsi_in(ix,iy-4,iz,iob,iik)      &
-        +fdN1(1,3)* tzpsi_in(ix,iy,iz+1,iob,iik) + fdN2(1,3) * tzpsi_in(ix,iy,iz-1,iob,iik)      &
-        +fdN1(2,3)* tzpsi_in(ix,iy,iz+2,iob,iik) + fdN2(2,3) * tzpsi_in(ix,iy,iz-2,iob,iik)      &
-        +fdN1(3,3)* tzpsi_in(ix,iy,iz+3,iob,iik) + fdN2(3,3) * tzpsi_in(ix,iy,iz-3,iob,iik)      &
-        +fdN1(4,3)* tzpsi_in(ix,iy,iz+4,iob,iik) + fdN2(4,3) * tzpsi_in(ix,iy,iz-4,iob,iik) 
-    end do
-    end do
-    end do
-    Ekin_tmp=0.d0
-!$OMP parallel do reduction(+:Ekin_tmp) private(ix,iy,iz)
-    do iz=mg_sta(3),mg_end(3)
-    do iy=mg_sta(2),mg_end(2)
-    do ix=mg_sta(1),mg_end(1)
-      Ekin_tmp=Ekin_tmp + rocc(iob,iik)*wtk(iik)*conjg(tzpsi_in(ix,iy,iz,iob,iik))*htpsi(ix,iy,iz,iob,iik)*Hvol 
-    end do
-    end do
-    end do
-    Ebox1(1)=Ebox1(1)+Ekin_tmp + rocc(p_allob,iik)*wtk(iik)*(ksquare(iik))/2.d0/dble(nproc_Mxin_mul)
+    sum_temp12=sum_temp12+ rocc(p_allob,iik)*wtk(iik)*(ksquare(iik))/2.d0/dble(nproc_Mxin_mul)
   end do
 end do
 
-sum_temp1=Ebox1(1)
-call comm_summation(sum_temp1,sum_temp2,nproc_group_global)
-Ebox2(1)=sum_temp2
+sum_temp11=sum_temp11+sum_temp12
+
+call comm_summation(sum_temp11,sum_temp13,nproc_group_global)
+Ebox2(1)=sum_temp13
 
 elp3(1403)=get_wtime()
 elp3(1452)=elp3(1452)+elp3(1403)-elp3(1402)
