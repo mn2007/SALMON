@@ -264,6 +264,7 @@ contains
       & nelec, &
       & nelec_spin, &
       & temperature, &
+      & temperature_k, &
       & nelem, &
       & natom, &
       & file_atom_coor, &
