@@ -380,14 +380,14 @@ DFT_Iteration : do iter=1,iDiter(img)
 
   Miter=Miter+1
 
-  if(temperature_k>=0.d0) then
+  if(temperature_k>=0.d0.and.Miter>iditer_notemperature) then
     if(iperiodic.eq.3) then
       call ne2mu_p
     else
       call ne2mu
     endif
   else
-    call calc_occupation(iter)
+    call calc_occupation
   endif
 
   call copy_density
@@ -399,9 +399,19 @@ DFT_Iteration : do iter=1,iDiter(img)
       elp3(181)=get_wtime()
       select case(iperiodic)
       case(0)
-        call DTcg(psi,iflag)
+        select case(gscg)
+        case('y')
+          call sgscg(psi,iflag)
+        case('n')
+          call DTcg(psi,iflag)
+        end select
       case(3)
-        call DTcg_periodic(zpsi,iflag)
+        select case(gscg)
+        case('y')
+          call gscg_periodic(zpsi,iflag)
+        case('n')
+          call DTcg_periodic(zpsi,iflag)
+        end select
       end select
       elp3(182)=get_wtime()
       elp3(183)=elp3(183)+elp3(182)-elp3(181)
@@ -536,9 +546,19 @@ DFT_Iteration : do iter=1,iDiter(img)
     if( amin_routine == 'cg' .or. (amin_routine == 'cg-diis' .and. Miter <= iDiterYBCG) ) then
       select case(iperiodic)
       case(0)
-        call DTcg(psi,iflag)
+        select case(gscg)
+        case('y')
+          call sgscg(psi,iflag)
+        case('n')
+          call DTcg(psi,iflag)
+        end select
       case(3)
-        call DTcg_periodic(zpsi,iflag)
+        select case(gscg)
+        case('y')
+          call gscg_periodic(zpsi,iflag)
+        case('n')
+          call DTcg_periodic(zpsi,iflag)
+        end select
       end select
     else if( amin_routine == 'diis' .or. amin_routine == 'cg-diis' ) then
       select case(iperiodic)
